@@ -36,39 +36,60 @@ def scrape_kandilli():
         raw_data = soup.find("pre").text
         lines = raw_data.split('\n')
         
-        # Clear old data before scraping new data
-        db.session.query(Earthquake).delete()
-        db.session.commit()
+        new_count = 0
         
         for line in lines:
+            # FIXED: Correct syntax for checking line length
             if len(line) > 100 and line[0].isdigit():
                 try:
+                    # Extract fields first
+                    date_val = line[0:10].strip()
+                    time_val = line[11:19].strip()
+                    location_val = line[71:121].strip()
+                    
+                    # 1. CHECK FOR DUPLICATES
+                    exists = db.session.query(Earthquake).filter_by(
+                        date=date_val, 
+                        time=time_val, 
+                        location=location_val
+                    ).first()
+
+                    if exists:
+                        continue  # Skip this one, we already have it
+
+                    # 2. INSERT NEW DATA
                     mag_val = line[60:63].strip()
                     lat_val = line[21:28].strip()
                     lng_val = line[30:37].strip()
                     depth_val = line[43:49].strip()
 
                     earthquake = Earthquake(
-                        date=line[0:10].strip(),
-                        time=line[11:19].strip(),
+                        date=date_val,
+                        time=time_val,
                         lat=float(lat_val),
                         lng=float(lng_val),
                         depth=float(depth_val),
                         mag=float(mag_val),
-                        location=line[71:121].strip()
+                        location=location_val
                     )
                     db.session.add(earthquake)
+                    new_count += 1
                 except ValueError:
                     continue
-        db.session.commit()
         
-        # Retrieve all earthquakes from the database
+        db.session.commit()
+        print(f"Scraping complete. Added {new_count} new earthquakes.")
+        
+        # Return latest data for the dataframe
         earthquakes = Earthquake.query.all()
         processed_list = [{
             "date": eq.date, "time": eq.time, "lat": eq.lat, "lng": eq.lng, 
             "depth": eq.depth, "mag": eq.mag, "location": eq.location, "is_anomaly": eq.is_anomaly
         } for eq in earthquakes]
+        
+        # FIXED: Added space between return and pd
         return pd.DataFrame(processed_list)
+
     except Exception as e:
         print(f"Scraping error: {e}")
         db.session.rollback()

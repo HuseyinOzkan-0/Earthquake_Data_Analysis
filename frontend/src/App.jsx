@@ -25,7 +25,7 @@ function App() {
     <Router>
       <div className="app-container">
         <nav className="navbar">
-          <h1><MapPinned size={30} color="#ffffffff" /> Türkiye Deprem Hartiası</h1>
+          <h1><MapPinned size={30} color="#ffffffff" /> Türkiye Deprem Haritası</h1>
           <div className="nav-links">
             <Link to="/"><MapIcon size={18} /> Map & Anomalies</Link>
             <Link to="/predictions"><BarChart3 size={18} /> Predictions</Link>
