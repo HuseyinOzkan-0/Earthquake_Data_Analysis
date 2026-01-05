@@ -26,16 +26,22 @@ def predict_next_events(df):
     """
     Analyzes historical clusters to estimate potential future activity.
     """
+    if df.empty:
+        return []
+    
     # Grouping by location to see where activity is densest
     stats = df.groupby('location').agg({
         'mag': 'mean',
         'date': 'count'
     }).rename(columns={'date': 'frequency'}).reset_index()
 
+    if stats.empty:
+        return []
+    
     # Simple logic: High frequency + High average magnitude = Higher Risk
     stats['risk_score'] = (stats['mag'] / stats['mag'].max()) * (stats['frequency'] / stats['frequency'].max())
     
-    # Return top 5 "high risk" areas
-    predictions=  sorted_stats = stats.sort_values(by='risk_score', ascending=False)
-    predictions = sorted_stats[sorted_stats['risk_score'] > 0.5]
+    # Return top 5 "high risk" areas (lowered threshold to 0.1)
+    sorted_stats = stats.sort_values(by='risk_score', ascending=False)
+    predictions = sorted_stats.head(10)  # Return top 10 instead of filtering
     return predictions.to_dict(orient='records')

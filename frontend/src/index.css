@@ -49,6 +49,7 @@ body {
   gap: 1.5rem;
   padding: 1.5rem;
   height: calc(100vh - 80px); /* Subtracts the navbar height */
+  overflow: hidden;
 }
 
 .map-section {
@@ -57,6 +58,7 @@ body {
   overflow: hidden;
   border: 1px solid rgba(255,255,255,0.05);
   box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  position: relative;
 }
 
 .list-section {
@@ -66,15 +68,48 @@ body {
   border: 1px solid rgba(255,255,255,0.05);
   display: flex;
   flex-direction: column;
-  max-height: 100%; /* Important: stays within the parent grid */
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.data-list {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.data-list > h3 {
+  margin: 0 0 0.5rem 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.data-list > div:not(.scroll-area):not(hr) {
+  flex-shrink: 0;
+}
+
+.recent-events-container {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 10px;
+  margin-bottom: 1rem;
+}
+
+.anomalies-container {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 10px;
 }
 
 /* Scrollable Area */
 .scroll-area {
   flex: 1; 
-  overflow-y: auto; /* This enables the vertical scrollbar */
-  margin-top: 1rem;
-  padding-right: 10px; /* Space for the scrollbar */
+  overflow-y: auto;
+  padding-right: 10px;
+  margin-top: 0;
 }
 
 .scroll-area::-webkit-scrollbar {
@@ -113,6 +148,50 @@ body {
   margin-right: 12px;
   min-width: 30px;
   text-align: center;
+  font-size: 0.85rem;
+}
+
+/* Map Legend */
+.map-legend {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: var(--card-bg);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 12px;
+  z-index: 400;
+  max-width: 150px;
+}
+
+.map-legend h4 {
+  margin: 0 0 10px 0;
+  font-size: 0.9rem;
+  color: var(--text-main);
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  padding-bottom: 8px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.legend-color {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.map-legend hr {
+  border: none;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  margin: 8px 0;
 }
 
 /* Prediction Cards */
