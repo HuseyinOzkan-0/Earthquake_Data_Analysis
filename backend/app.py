@@ -7,6 +7,14 @@ from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 
 from analysis import detect_anomalies, predict_next_events
+from apscheduler.schedulers.background import BackgroundScheduler
+import datetime
+import os
+import queue
+import json
+from flask import Response, stream_with_context
+import hashlib
+import threading
 
 app = Flask(__name__)
 CORS(app)
@@ -79,6 +87,14 @@ def scrape_kandilli():
         
         db.session.commit()
         print(f"Scraping complete. Added {new_count} new earthquakes.")
+
+        # Notify connected SSE clients when new data was added
+        if new_count > 0:
+            try:
+                payload = json.dumps({"new_count": new_count, "timestamp": datetime.datetime.utcnow().isoformat() + 'Z'})
+                notify_clients(payload)
+            except Exception as _:
+                pass
         
         # Return latest data for the dataframe
         earthquakes = Earthquake.query.all()
@@ -94,6 +110,106 @@ def scrape_kandilli():
         print(f"Scraping error: {e}")
         db.session.rollback()
         return pd.DataFrame()
+
+
+def _scheduled_scrape():
+    try:
+        with app.app_context():
+            print(f"Scheduled scrape triggered at {datetime.datetime.utcnow().isoformat()}Z")
+            scrape_kandilli()
+    except Exception as e:
+        print(f"Scheduled scrape error: {e}")
+
+
+_watch_lock = threading.Lock()
+LAST_HASH_PATH = os.path.join('instance', 'last_hash.txt')
+
+def _read_last_hash():
+    try:
+        if os.path.exists(LAST_HASH_PATH):
+            with open(LAST_HASH_PATH, 'r') as f:
+                return f.read().strip()
+    except Exception:
+        pass
+    return None
+
+def _write_last_hash(h):
+    try:
+        os.makedirs(os.path.dirname(LAST_HASH_PATH), exist_ok=True)
+        with open(LAST_HASH_PATH, 'w') as f:
+            f.write(h)
+    except Exception:
+        pass
+
+def _check_remote_and_trigger():
+    """Fetch the Kandilli page, compute hash of the <pre> content, and trigger scrape if changed."""
+    url = "http://www.koeri.boun.edu.tr/scripts/lst2.asp"
+    try:
+        # prevent overlapping checks
+        if not _watch_lock.acquire(blocking=False):
+            return
+        resp = requests.get(url, timeout=15)
+        resp.encoding = 'utf-8'
+        soup = BeautifulSoup(resp.text, "html.parser")
+        pre = soup.find('pre')
+        if pre is None:
+            return
+        content = pre.text.strip()
+        cur_hash = hashlib.sha256(content.encode('utf-8')).hexdigest()
+        last = _read_last_hash()
+        if last != cur_hash:
+            print(f"Remote content changed (last={last is not None}); triggering scrape")
+            _write_last_hash(cur_hash)
+            with app.app_context():
+                try:
+                    scrape_kandilli()
+                except Exception as e:
+                    print('Error scraping after remote change:', e)
+    except Exception as e:
+        print('Remote check error:', e)
+    finally:
+        try:
+            _watch_lock.release()
+        except Exception:
+            pass
+
+
+
+# Simple in-memory pub/sub for Server-Sent Events (SSE)
+_clients = []
+
+def notify_clients(message: str):
+    # put message into each client's queue
+    for q in list(_clients):
+        try:
+            q.put(message)
+        except Exception:
+            # ignore client queue errors; cleanup happens on disconnect
+            pass
+
+
+@app.route('/api/stream')
+def stream():
+    def event_stream():
+        q = queue.Queue()
+        _clients.append(q)
+        try:
+            while True:
+                msg = q.get()
+                yield f"data: {msg}\n\n"
+        except GeneratorExit:
+            try:
+                _clients.remove(q)
+            except ValueError:
+                pass
+
+    return Response(stream_with_context(event_stream()), mimetype='text/event-stream')
+
+
+# Setup background scheduler to run scraper every 5 minutes
+scheduler = BackgroundScheduler()
+scheduler.add_job(_scheduled_scrape, 'interval', minutes=5, id='kandilli_scrape', replace_existing=True)
+scheduler.add_job(_check_remote_and_trigger, 'interval', seconds=60, id='kandilli_watch', replace_existing=True)
 
 @app.route('/api/earthquakes', methods=['GET'])
 def get_data():
@@ -167,4 +283,8 @@ def refresh_data():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()  # Create database tables
+    # Start scheduler safely (avoid double-start with the reloader)
+    if not app.debug or os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+        scheduler.start()
+        print('Background scheduler started: scraping every 5 minutes')
     app.run(debug=True, port=5000)

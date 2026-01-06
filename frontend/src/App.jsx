@@ -11,12 +11,36 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axios.get('http://127.0.0.1:5000/api/earthquakes')
-      .then(res => {
-        setEarthquakes(res.data);
-        setLoading(false);
-      })
-      .catch(err => console.error("Error fetching data:", err));
+    const fetchData = () => {
+      axios.get('http://127.0.0.1:5000/api/earthquakes')
+        .then(res => {
+          setEarthquakes(res.data);
+          setLoading(false);
+        })
+        .catch(err => console.error('Error fetching data:', err));
+    };
+
+    // Initial fetch
+    fetchData();
+
+    // Poll every 5 minutes (300000 ms)
+    const interval = setInterval(fetchData, 300000);
+
+    // Subscribe to server-sent events to get immediate updates when backend scrapes new data
+    let es;
+    try {
+      es = new EventSource('http://127.0.0.1:5000/api/stream');
+      es.onmessage = (e) => {
+        // Server notifies with a small payload; refresh immediately
+        try { const payload = JSON.parse(e.data); console.log('SSE event:', payload); } catch (err) {}
+        fetchData();
+      };
+      es.onerror = (err) => { console.warn('SSE connection error', err); es.close(); };
+    } catch (err) {
+      console.warn('SSE not supported or connection failed', err);
+    }
+
+    return () => { clearInterval(interval); if (es) es.close(); };
   }, []);
 
   if (loading) return <div className="loading">Scraping Kandilli Data...</div>;
