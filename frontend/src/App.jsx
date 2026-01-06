@@ -24,8 +24,8 @@ function App() {
     // Initial fetch
     fetchData();
 
-    // Poll every 5 minutes (300000 ms)
-    const interval = setInterval(fetchData, 300000);
+    // Poll every 1 minutes (60000 ms)
+    const interval = setInterval(fetchData, 60000);
 
     // Subscribe to server-sent events to get immediate updates when backend scrapes new data
     let es;
@@ -50,7 +50,7 @@ function App() {
     <Router>
       <div className="app-container">
         <nav className="navbar">
-          <h1><MapPinned size={30} color="#ffffffff" /> Türkiye Deprem Haritası</h1>
+          <h1><MapPinned size={30} color="#ffffffff" /> Türkiye Earthquake Map</h1>
           <div className="nav-links">
             <Link to="/"><MapIcon size={18} /> Map & Anomalies</Link>
             <Link to="/predictions"><BarChart3 size={18} /> Predictions</Link>

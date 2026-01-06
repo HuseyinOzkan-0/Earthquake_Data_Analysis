@@ -19,7 +19,7 @@ function Predictions() {
             <div className="risk-bar">
               <div 
                 className="risk-fill" 
-                style={{ width: `${p.risk_score * 100}%`, backgroundColor: p.risk_score > 0.6 ? '#ff4d4d' : '#ffcc00' }}
+                style={{ width: `${p.risk_score * 100}%`, backgroundColor: p.risk_score > 0.6 ? '#ff4d4d' : '#00ff0dff' }}
               ></div>
             </div>
             <p>Calculated Risk Score: {(p.risk_score * 10).toFixed(2)}/10</p>
