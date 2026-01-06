@@ -9,6 +9,7 @@ import { MapPinned, Map as MapIcon, BarChart3 } from 'lucide-react';
 function App() {
   const [earthquakes, setEarthquakes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedEarthquake, setSelectedEarthquake] = useState(null);
 
   useEffect(() => {
     const fetchData = () => {
@@ -60,10 +61,10 @@ function App() {
           <Route path="/" element={
             <div className="main-layout">
               <div className="map-section">
-                <EarthquakeMap data={earthquakes} />
+                <EarthquakeMap data={earthquakes} selectedEarthquake={selectedEarthquake} />
               </div>
               <div className="list-section">
-                <EarthquakeList data={earthquakes} />
+                <EarthquakeList data={earthquakes} onEarthquakeSelect={setSelectedEarthquake} />
               </div>
             </div>
           } />

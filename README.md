@@ -1,109 +1,113 @@
-# Earthquake Data Analysis — Reproducible Report and Deliverables
+# Earthquake Data Analysis Platform
 
-## Overview
+## Project Overview
 
-This project ingests earthquake event data from Kandilli Observatory, cleans and stores events in a local SQLite database, detects anomalous events, and provides both interactive visualization (React frontend) and reproducible analysis artifacts (notebook + scripts). The repository is structured to make grading and reproduction straightforward.
+This project is a comprehensive full-stack application designed to scrape, analyze, and visualize real-time earthquake data from the Kandilli Observatory. It features an automated data pipeline, machine learning-based anomaly detection, and an interactive modern web dashboard.
 
-## Quickstart (Windows PowerShell)
+## Technical Architecture
 
-1. Create and activate the virtual environment:
+The solution uses a decoupled architecture for robustness and maintainability:
 
+*   **Backend:** Python 3.10+, Flask, SQLAlchemy (SQLite), APScheduler.
+*   **Frontend:** React.js (Vite), Leaflet Maps, Server-Sent Events (SSE).
+*   **Data Science:** Pandas, Scikit-learn (Isolation Forest), Matplotlib/Seaborn.
+*   **DevOps:** Cross-platform support (Windows/macOS/Linux), Virtual Environments.
+
+## Features
+
+*   **Automated Data Ingestion:**
+    *   Real-time scraping of messy HTML data from the source.
+    *   Intelligent parsing and cleaning pipeline.
+    *   Duplicate detection and data normalization.
+*   **Advanced Analysis:**
+    *   **Anomaly Detection:** Uses `Isolation Forest` to identify unusual seismic events based on magnitude, depth, and location.
+    *   **Risk Prediction:** Statistical analysis of historical clusters to estimate future activity density.
+*   **Modern Visualization:**
+    *   Interactive React dashboard with real-time updates.
+    *   Geospatial mapping of events and anomalies.
+    *   Responsive design for various devices.
+
+## Prerequisites
+
+Ensure the following are installed on your system:
+
+1.  **Python 3.10+**: [Download Python](https://www.python.org/downloads/)
+    *   *Note:* Ensure "Add Python to PATH" is selected during installation.
+2.  **Node.js (LTS version)**: [Download Node.js](https://nodejs.org/)
+    *   Required for the React frontend build tools.
+
+## Installation & Setup
+
+### 1. Backend Initialization
+
+**Windows (PowerShell):**
 ```powershell
 python -m venv .venv
 .venv\Scripts\Activate.ps1
-```
-
-2. Install backend requirements:
-
-```powershell
 pip install -r backend/requirements.txt
 ```
 
-3. Start the backend (scheduler and API):
+**macOS / Linux:**
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r backend/requirements.txt
+```
 
-```powershell
+### 2. Frontend Initialization
+
+```bash
+cd frontend
+npm install
+```
+
+## Running the Application
+
+For the full experience, run the backend and frontend in parallel using two terminal windows.
+
+**Terminal 1: Backend Service**
+```bash
+# Ensure virtual environment is active (.venv)
 cd backend
 python app.py
 ```
+*The server will start on port 5000 and begin the background scraping job.*
 
-You should see a log line: "Background scheduler started: scraping every 5 minutes".
-
-4. Start the frontend (in a separate terminal):
-
-```powershell
+**Terminal 2: Frontend Dashboard**
+```bash
 cd frontend
-npm install
 npm run dev
 ```
+*   Access the dashboard at: `http://localhost:5173`
+*   **Tip:** Use Ctrl+Click on the URL in the terminal to open it instantly.
 
-Open the app in a browser (usually `http://localhost:5173/`) — the UI polls every 5 minutes and subscribes to server-sent events so it updates immediately when the backend scrapes new data.
+## Data Cleaning & Processing Pipeline
 
-## What to run to reproduce figures and tables
+Consistent with data science best practices, the `KandilliScraper` class performs the following transformations on the raw input:
 
-1. Generate the reproducible figures and an interactive map:
+1.  **Raw Ingestion:** Fetches the raw `<pre>` block HTML from the source.
+2.  **Parsing:** Splits fixed-width text data into structured fields (Date, Time, Lat, Long, Depth, Mag, Location).
+3.  **Normalization:**
+    *   Converts numeric fields to floats.
+    *   Standardizes timestamps to UTC.
+    *   Trims whitespace from location strings.
+4.  **Validation:** Filters out malformed lines or incomplete records.
+5.  **Deduplication:** Checks against the database (Date+Time+Location composite key) to prevent duplicates.
+6.  **Anomaly Scoring:** Passes cleaned data through the Isolation Forest model to flag outliers before persistence.
 
-```powershell
+## Reproducibility & Testing
+
+### Unit Tests
+The project includes a test suite to ensure robustness.
+```bash
+python -m unittest discover backend/tests
+```
+
+### Static Reports
+To generate analysis artifacts without running the web server:
+```bash
 python backend/generate_report.py
 ```
-
-Outputs are written to the `reports/` folder:
-- `reports/fig_mag_hist.png` — magnitude distribution (anomalies highlighted)
-- `reports/fig_map.png` — static latitude/longitude scatter
-- `reports/map.html` — interactive map (open in a browser)
-
-2. The notebook `notebooks/repro_report.ipynb` demonstrates the same steps interactively and documents assumptions.
-
-## Data cleaning — exact steps performed / recommended
-
-The repository follows these reproducible cleaning steps (also documented in `notebooks/repro_report.ipynb`):
-
-1. Ingest raw HTML from Kandilli and parse fixed-width columns (see `backend/app.py`). Raw content is preserved in the ingestion step where possible.
-2. Parse timestamps with `pandas.to_datetime(..., errors='coerce')` and normalize to UTC.
-3. Validate coordinates: drop or flag lat/lon outside valid ranges.
-4. Normalize magnitudes and depth (store depths in kilometers). Flag negative/absurd depths as missing.
-5. Deduplicate by `date`, `time`, and `location` at ingest — duplicates are skipped.
-6. Add provenance columns: `source`, `raw_filename`, `ingest_time`, and `cleaning_notes` when applicable.
-7. Save cleaned data to the database `backend/instance/earthquakes.db` and to `reports/` when exporting.
-
-Example quick check (pandas):
-
-```python
-import pandas as pd
-df = pd.read_parquet('data/cleaned/events-YYYY-MM-DD.parquet')
-df['time'] = pd.to_datetime(df['time'], utc=True, errors='coerce')
-df = df[df['time'].notna()]
-```
-
-## Anomaly detection (what I implemented)
-
-- Method: Isolation Forest (see `backend/analysis.py`) using numeric features `lat`, `lng`, `depth`, `mag`.
-- Output: boolean `is_anomaly` per event and `anomaly_score` for ranking.
-- Tuning: the default contamination is set in code; you can change it when calling `detect_anomalies()`.
-
-Minimal example (already used by the app):
-
-```python
-from backend.analysis import detect_anomalies
-df = detect_anomalies(df)
-```
-
-## Advanced scientific reporting & reproducibility
-
-- All analysis steps are captured in `notebooks/repro_report.ipynb` and in the script `backend/generate_report.py` which saves figures to `reports/`.
-- Include environment snapshot:
-
-```powershell
-pip freeze > backend/requirements-freeze.txt
-```
-
-- For graders: run the Quickstart steps above, then `python backend/generate_report.py` and open `reports/map.html` and images.
-
-## Files of interest
-
-- Backend: [backend/app.py](backend/app.py) (scraper + API + scheduler)
-- Analysis: [backend/analysis.py](backend/analysis.py) (anomaly detection + simple predictions)
-- Reproducible report script: [backend/generate_report.py](backend/generate_report.py)
-- Notebook: [notebooks/repro_report.ipynb](notebooks/repro_report.ipynb)
-- Frontend: [frontend/src/App.jsx](frontend/src/App.jsx) (data fetching, SSE subscription)
+Outputs are saved to `reports/` (Histograms, Scatter Plots, Offline Maps).
 
 

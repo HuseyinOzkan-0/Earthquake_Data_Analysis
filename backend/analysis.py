@@ -3,45 +3,42 @@ from sklearn.ensemble import IsolationForest
 import pandas as pd
 import numpy as np
 
-def detect_anomalies(df):
+class SeismologicalAnalyzer:
     """
-    Identifies 'outlier' earthquakes using the Isolation Forest algorithm.
+    Class responsible for analyzing earthquake data using ML techniques.
+    Implements anomaly detection and risk prediction.
     """
-    if df.empty:
+    
+    @staticmethod
+    def detect_anomalies(df):
+        """Identifies 'outlier' earthquakes using the Isolation Forest algorithm."""
+        if df.empty:
+            return df
+        
+        features = df[['lat', 'lng', 'depth', 'mag']]
+        model = IsolationForest(contamination=0.05, random_state=42)
+        
+        df['anomaly_score'] = model.fit_predict(features)
+        df['is_anomaly'] = df['anomaly_score'] == -1
+        
         return df
-    
-    # Selecting numerical features for the model
-    features = df[['lat', 'lng', 'depth', 'mag']]
-    
-    # contamination=0.05 means we expect 5% of data to be anomalies
-    model = IsolationForest(contamination=0.05, random_state=42)
-    
-    # Predict: 1 = normal, -1 = anomaly
-    df['anomaly_score'] = model.fit_predict(features)
-    df['is_anomaly'] = df['anomaly_score'] == -1
-    
-    return df
 
-def predict_next_events(df):
-    """
-    Analyzes historical clusters to estimate potential future activity.
-    """
-    if df.empty:
-        return []
-    
-    # Grouping by location to see where activity is densest
-    stats = df.groupby('location').agg({
-        'mag': 'mean',
-        'date': 'count'
-    }).rename(columns={'date': 'frequency'}).reset_index()
+    @staticmethod
+    def predict_next_events(df):
+        """Analyzes historical clusters to estimate potential future activity."""
+        if df.empty:
+            return []
+        
+        stats = df.groupby('location').agg({
+            'mag': 'mean',
+            'date': 'count'
+        }).rename(columns={'date': 'frequency'}).reset_index()
 
-    if stats.empty:
-        return []
-    
-    # Simple logic: High frequency + High average magnitude = Higher Risk
-    stats['risk_score'] = (stats['mag'] / stats['mag'].max()) * (stats['frequency'] / stats['frequency'].max())
-    
-    # Return top 5 "high risk" areas (lowered threshold to 0.1)
-    sorted_stats = stats.sort_values(by='risk_score', ascending=False)
-    predictions = sorted_stats.head(10)  # Return top 10 instead of filtering
-    return predictions.to_dict(orient='records')
+        if stats.empty:
+            return []
+        
+        stats['risk_score'] = (stats['mag'] / stats['mag'].max()) * (stats['frequency'] / stats['frequency'].max())
+        
+        sorted_stats = stats.sort_values(by='risk_score', ascending=False)
+        predictions = sorted_stats.head(10)
+        return predictions.to_dict(orient='records')

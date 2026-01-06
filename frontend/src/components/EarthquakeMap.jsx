@@ -1,4 +1,5 @@
-import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
+import React, { useEffect } from 'react';
+import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 
 const turkeyBounds = [
@@ -58,10 +59,21 @@ function MapLegend() {
   );
 }
 
-function EarthquakeMap({ data }) {
+function MapRecenter({ selectedEarthquake }) {
+  const map = useMap();
+  useEffect(() => {
+    if (selectedEarthquake) {
+      map.flyTo([selectedEarthquake.lat, selectedEarthquake.lng], 10);
+    }
+  }, [selectedEarthquake, map]);
+  return null;
+}
+
+function EarthquakeMap({ data, selectedEarthquake }) {
   return (
     <>
       <MapContainer center={[39.0, 35.0]} zoom={6} style={{ height: "100%", width: "100%" }} minZoom={5} maxBounds={turkeyBounds}>
+        <MapRecenter selectedEarthquake={selectedEarthquake} />
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         {data.map((eq, idx) => (
           <CircleMarker 
