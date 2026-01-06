@@ -143,7 +143,7 @@ def stream():
     return Response(stream_with_context(event_stream()), mimetype='text/event-stream')
 
 scheduler = BackgroundScheduler()
-scheduler.add_job(_scheduled_scrape, 'interval', minutes=5,
+scheduler.add_job(_scheduled_scrape, 'interval', seconds=30,
                   id='kandilli_scrape', replace_existing=True)
 scheduler.add_job(_check_remote_and_trigger, 'interval', seconds=60,
                   id='kandilli_watch', replace_existing=True)
