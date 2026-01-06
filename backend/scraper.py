@@ -1,3 +1,6 @@
+"""
+Scraper module for fetching and parsing data from the Kandilli Observatory.
+"""
 import hashlib
 import requests
 from bs4 import BeautifulSoup
@@ -7,7 +10,7 @@ class KandilliScraper:
     Handles fetching and parsing earthquake data from the Kandilli Observatory website.
     Also provides utilities for checking content updates.
     """
-    
+
     BASE_URL = "http://www.koeri.boun.edu.tr/scripts/lst2.asp"
     _last_hash = None
 
@@ -35,19 +38,19 @@ class KandilliScraper:
             response.encoding = 'utf-8'
             soup = BeautifulSoup(response.text, "html.parser")
             pre = soup.find('pre')
-            
+
             if pre is None:
                 return False
-                
+
             content = pre.text.strip()
             cur_hash = hashlib.sha256(content.encode('utf-8')).hexdigest()
-            
+
             if cls._last_hash != cur_hash:
                 cls._last_hash = cur_hash
                 return True
             return False
-            
-        except Exception as e:
+
+        except Exception as e: # pylint: disable=broad-exception-caught
             print(f"Update check error: {e}")
             return False
 
@@ -62,7 +65,7 @@ class KandilliScraper:
 
         soup = BeautifulSoup(html_content, "html.parser")
         pre_tag = soup.find("pre")
-        
+
         if not pre_tag:
             return []
 
@@ -92,5 +95,5 @@ class KandilliScraper:
                     })
                 except ValueError:
                     continue
-        
+
         return parsed_earthquakes

@@ -83,17 +83,28 @@ npm run dev
 
 ## Data Cleaning & Processing Pipeline
 
-Consistent with data science best practices, the `KandilliScraper` class performs the following transformations on the raw input:
+Consistent with data science best practices, the `KandilliScraper` class performs the following step-by-step cleaning on the messy raw input:
 
-1.  **Raw Ingestion:** Fetches the raw `<pre>` block HTML from the source.
-2.  **Parsing:** Splits fixed-width text data into structured fields (Date, Time, Lat, Long, Depth, Mag, Location).
-3.  **Normalization:**
-    *   Converts numeric fields to floats.
-    *   Standardizes timestamps to UTC.
-    *   Trims whitespace from location strings.
-4.  **Validation:** Filters out malformed lines or incomplete records.
-5.  **Deduplication:** Checks against the database (Date+Time+Location composite key) to prevent duplicates.
-6.  **Anomaly Scoring:** Passes cleaned data through the Isolation Forest model to flag outliers before persistence.
+1.  **Raw Ingestion (Scraping):** 
+    *   Fetches the raw HTML content from the Kandilli Observatory via HTTP request.
+    *   Extracts the inner text of the `<pre>` tag containing the unstructured data table.
+2.  **Structuring & Parsing:** 
+    *   Splits the raw text block into individual lines.
+    *   Iterates through each line and applies fixed-width slicing to extract fields:
+        *   `Date` (Chars 0-10) & `Time` (11-19)
+        *   `Latitude` (21-28) & `Longitude` (30-37)
+        *   `Depth` (43-49) & `Magnitude` (60-63)
+        *   `Location` (71-121)
+3.  **Data Cleaning & Normalization:**
+    *   **Type Conversion:** Converts string coordinates and measurements to `float`.
+    *   **Whitespace Removal:** Trims leading/trailing whitespace from location strings.
+    *   **Error Handling:** Discards lines that fail validation or don't start with a digit (headers/footers).
+4.  **Database Integration & Deduplication:** 
+    *   Checks each parsed record against the SQLite database using a composite key (`Date` + `Time` + `Location`).
+    *   Discards records that already exist to prevent duplication.
+5.  **Anomaly Scoring (Data Science):** 
+    *   Passes new, clean records through the `SeismologicalAnalyzer`.
+    *   Uses **Isolation Forest** (Unsupervised ML) to score and flag anomalous events before saving.
 
 ## Reproducibility & Testing
 

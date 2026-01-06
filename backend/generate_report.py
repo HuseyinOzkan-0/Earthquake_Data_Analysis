@@ -1,8 +1,13 @@
+"""
+Script to generate static and interactive reports from the earthquake database.
+Generates histograms, scatter plots, and simple maps.
+"""
 import os
 import sqlite3
 import pandas as pd
 import matplotlib
 matplotlib.use('Agg')
+# pylint: disable=wrong-import-position
 import matplotlib.pyplot as plt
 import seaborn as sns
 import folium
@@ -14,18 +19,23 @@ OUT_DIR = os.path.join(os.path.dirname(__file__), '..', 'reports')
 os.makedirs(OUT_DIR, exist_ok=True)
 
 def load_db(db_path=DB_PATH):
+    """Load earthquake data from SQLite database."""
     if not os.path.exists(db_path):
         raise FileNotFoundError(f"DB not found: {db_path}")
     conn = sqlite3.connect(db_path)
-    df = pd.read_sql_query('SELECT date, time, lat, lng, depth, mag, location FROM Earthquake', conn)
+    df = pd.read_sql_query(
+        'SELECT date, time, lat, lng, depth, mag, location FROM Earthquake', conn
+    )
     conn.close()
     return df
 
 def save_mag_hist(df, out_path):
+    """Generate and save magnitude histogram."""
     plt.figure(figsize=(8,5))
     sns.histplot(df['mag'].dropna(), bins=30, kde=False, color='C0', label='All events')
     if 'is_anomaly' in df.columns:
-        sns.histplot(df[df['is_anomaly']==True]['mag'].dropna(), bins=30, color='C3', label='Anomalies')
+        anomalies = df[df['is_anomaly']]
+        sns.histplot(anomalies['mag'].dropna(), bins=30, color='C3', label='Anomalies')
     plt.xlabel('Magnitude')
     plt.ylabel('Count')
     plt.legend()
@@ -35,9 +45,10 @@ def save_mag_hist(df, out_path):
     plt.close()
 
 def save_scatter_map(df, out_path):
+    """Generate and save static scatter map."""
     plt.figure(figsize=(8,6))
-    normal = df[df['is_anomaly']!=True]
-    anom = df[df['is_anomaly']==True]
+    normal = df[~df['is_anomaly']]
+    anom = df[df['is_anomaly']]
     plt.scatter(normal['lng'], normal['lat'], s=10, alpha=0.6, label='normal', c='C0')
     if not anom.empty:
         plt.scatter(anom['lng'], anom['lat'], s=20, alpha=0.9, label='anomaly', c='red')
@@ -50,22 +61,24 @@ def save_scatter_map(df, out_path):
     plt.close()
 
 def save_folium_map(df, out_path):
+    """Generate and save interactive Folium map."""
     lat0 = df['lat'].median()
     lng0 = df['lng'].median()
     m = folium.Map(location=[lat0, lng0], zoom_start=6)
     for _, r in df.iterrows():
         color = 'red' if r.get('is_anomaly') else 'blue'
         folium.CircleMarker(
-            location=[r['lat'], r['lng']], 
-            radius=3, 
+            location=[r['lat'], r['lng']],
+            radius=3,
             color=color,
-            fill=True, 
+            fill=True,
             fill_opacity=0.7,
             popup=f"{r.get('date')} {r.get('time')} {r.get('mag')}"
         ).add_to(m)
     m.save(out_path)
 
 def main():
+    """Main execution function."""
     print('Loading DB...')
     try:
         df = load_db()

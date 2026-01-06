@@ -24,6 +24,7 @@ db = SQLAlchemy(app)
 
 class Earthquake(db.Model):
     """Database model representing an earthquake event."""
+    # pylint: disable=too-few-public-methods
     id = db.Column(db.Integer, primary_key=True)
     date = db.Column(db.String(10), nullable=False)
     time = db.Column(db.String(8), nullable=False)
@@ -37,7 +38,6 @@ class Earthquake(db.Model):
     def __repr__(self):
         return f"<Earthquake {self.location} - {self.mag}>"
 
-# Simple in-memory pub/sub for Server-Sent Events (SSE)
 _clients = []
 
 def notify_clients(message: str):
@@ -65,9 +65,9 @@ def scrape_kandilli():
     try:
         html_content = KandilliScraper.fetch_data()
         parsed_data = KandilliScraper.parse_data(html_content)
-        
+
         new_count = 0
-        
+
         for item in parsed_data:
             exists = db.session.query(Earthquake).filter_by(
                 date=item['date'],
@@ -89,7 +89,7 @@ def scrape_kandilli():
             )
             db.session.add(earthquake)
             new_count += 1
-        
+
         db.session.commit()
         if new_count > 0:
             print(f"Scraping complete. Added {new_count} new earthquakes.")
@@ -101,7 +101,7 @@ def scrape_kandilli():
             "depth": eq.depth, "mag": eq.mag, "location": eq.location,
             "is_anomaly": eq.is_anomaly
         } for eq in earthquakes]
-        
+
         return pd.DataFrame(processed_list)
 
     except Exception as e: # pylint: disable=broad-exception-caught
@@ -142,7 +142,6 @@ def stream():
 
     return Response(stream_with_context(event_stream()), mimetype='text/event-stream')
 
-# Setup background scheduler
 scheduler = BackgroundScheduler()
 scheduler.add_job(_scheduled_scrape, 'interval', minutes=5,
                   id='kandilli_scrape', replace_existing=True)
@@ -155,22 +154,22 @@ def get_data():
     count = Earthquake.query.count()
     if count == 0:
         scrape_kandilli()
-    
+
     earthquakes = Earthquake.query.order_by(
         Earthquake.date.desc(),
         Earthquake.time.desc()
     ).all()
-    
+
     df = pd.DataFrame([{
         "date": eq.date, "time": eq.time, "lat": eq.lat, "lng": eq.lng,
         "depth": eq.depth, "mag": eq.mag, "location": eq.location
     } for eq in earthquakes])
-    
+
     if df.empty:
         return jsonify([])
-    
+
     df = SeismologicalAnalyzer.detect_anomalies(df)
-    
+
     for _, row in df.iterrows():
         eq = Earthquake.query.filter_by(
             date=row['date'], time=row['time'], location=row['location']
@@ -178,7 +177,7 @@ def get_data():
         if eq:
             eq.is_anomaly = row['is_anomaly']
     db.session.commit()
-    
+
     return jsonify(df.to_dict(orient='records'))
 
 @app.route('/api/predictions', methods=['GET'])
@@ -186,16 +185,16 @@ def get_predictions():
     """API endpoint to get risk predictions."""
     if Earthquake.query.count() == 0:
         scrape_kandilli()
-    
+
     earthquakes = Earthquake.query.all()
     df = pd.DataFrame([{
         "date": eq.date, "time": eq.time, "lat": eq.lat, "lng": eq.lng,
         "depth": eq.depth, "mag": eq.mag, "location": eq.location
     } for eq in earthquakes])
-    
+
     if df.empty:
         return jsonify([])
-    
+
     predictions = SeismologicalAnalyzer.predict_next_events(df)
     return jsonify(predictions)
 
@@ -215,9 +214,9 @@ def refresh_data():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    
+
     if not app.debug or os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
         scheduler.start()
         print('Background scheduler started.')
-    
+
     app.run(debug=True, port=5000)
